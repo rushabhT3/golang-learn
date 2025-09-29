@@ -1,32 +1,104 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
-	"net/http"
+	"log"
+	"time"
 
-	"github.com/gorilla/mux"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
-	// mux: popular router for golang: uber use it
-	router := mux.NewRouter()
+	// Since we chose a MySQL container without a password, we're not using one here.
+	db, err := sql.Open("mysql", "root@tcp(127.0.0.1:3306)/mysql?parseTime=true")
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := db.Ping(); err != nil {
+		log.Fatal(err)
+	}
 
-	router.HandleFunc("/books/{title}/pages/{page}", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		title := vars["title"]
-		page := vars["page"]
-		fmt.Fprintf(w, "Book: %s\nPage: %s\n", title, page)
-	})
+	{ // Create a new table
+		query := `
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT,
+                username TEXT NOT NULL,
+                password TEXT NOT NULL,
+                created_at DATETIME,
+                PRIMARY KEY (id)
+            );`
 
-	// CreateBook, ReadBook, UpdateBook, and DeleteBook are functions; that must be define in the codebase
-	/*
-		router.HandleFunc("/books/{title}", CreateBook).Methods("POST")
-		router.HandleFunc("/books/{title}", ReadBook).Methods("GET")
-		router.HandleFunc("/books/{title}", UpdateBook).Methods("PUT")
-		router.HandleFunc("/books/{title}", DeleteBook).Methods("DELETE")
-	*/
+		if _, err := db.Exec(query); err != nil {
+			log.Fatal(err)
+		}
+	}
 
-	fmt.Println("Server is running on port 80")
-	// port 80: don't have to write that in the URL section like localhost:80; writing localhost only also works
-	http.ListenAndServe(":80", router)
+	{ // Insert a new user
+		username := "johndoe"
+		password := "secret"
+		createdAt := time.Now()
+
+		result, err := db.Exec(`INSERT INTO users (username, password, created_at) VALUES (?, ?, ?)`, username, password, createdAt)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		id, _ := result.LastInsertId()
+		fmt.Println(id)
+	}
+
+	{ // Query a single user
+		var (
+			id        int
+			username  string
+			password  string
+			createdAt time.Time
+		)
+
+		query := "SELECT id, username, password, created_at FROM users WHERE id = ?"
+		if err := db.QueryRow(query, 1).Scan(&id, &username, &password, &createdAt); err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(id, username, password, createdAt)
+	}
+
+	{ // Query all users
+		type user struct {
+			id        int
+			username  string
+			password  string
+			createdAt time.Time
+		}
+
+		rows, err := db.Query(`SELECT id, username, password, created_at FROM users`)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer rows.Close()
+
+		var users []user
+		for rows.Next() {
+			var u user
+
+			err := rows.Scan(&u.id, &u.username, &u.password, &u.createdAt)
+			if err != nil {
+				log.Fatal(err)
+			}
+			users = append(users, u)
+		}
+		if err := rows.Err(); err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("%#v", users)
+	}
+
+	{
+		_, err := db.Exec(`DELETE FROM users WHERE id = ?`, 1)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
