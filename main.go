@@ -3,25 +3,30 @@ package main
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
-	// http.HandleFunc: to handle the request
-	// w : to write the response
-	// r : to read the request
-	// http.ResponseWriter : to write the response we don't use the pointer because it's interface and under the hood golang takes care of this and make it pointer
-	// *http.Request : to read the request we use pointer to the request
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// fmt.Fprintf(w,: to send the response to the client
-		// r.URL.Path: to get the path of the request
-		// %s: to format the string
-		fmt.Fprintf(w, "Hello, you've requested: %s\n", r.URL.Path)
+	// mux: popular router for golang: uber use it
+	router := mux.NewRouter()
+
+	router.HandleFunc("/books/{title}/pages/{page}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		title := vars["title"]
+		page := vars["page"]
+		fmt.Fprintf(w, "Book: %s\nPage: %s\n", title, page)
 	})
 
-	// Serves files from 'static/' directory; e.g. localhost/static/redis.png serves the image.
-	fs := http.FileServer(http.Dir("static/"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	// CreateBook, ReadBook, UpdateBook, and DeleteBook are functions; that must be define in the codebase
+	/*
+		router.HandleFunc("/books/{title}", CreateBook).Methods("POST")
+		router.HandleFunc("/books/{title}", ReadBook).Methods("GET")
+		router.HandleFunc("/books/{title}", UpdateBook).Methods("PUT")
+		router.HandleFunc("/books/{title}", DeleteBook).Methods("DELETE")
+	*/
 
-	// listen on 80 port, pass `nil` to say "Use the DefaultServeMux
-	http.ListenAndServe(":80", nil)
+	fmt.Println("Server is running on port 80")
+	// port 80: don't have to write that in the URL section like localhost:80; writing localhost only also works
+	http.ListenAndServe(":80", router)
 }
