@@ -23,3 +23,6 @@ run this to start the mysql docker container (NO password needed here); The port
 ```sh
 docker run -d --name mysql-container -p 3306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql
 ```
+
+`db.Query` which can query multiple rows, for us to iterate over
+`db.QueryRow` in case we only want to query a specific row.
